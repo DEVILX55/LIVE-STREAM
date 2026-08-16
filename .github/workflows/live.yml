@@ -2,32 +2,23 @@ name: Continuous Live Stream
 
 on:
   workflow_dispatch:
-    inputs:
-      song_url:
-        description: 'Song Direct MP4/MP3 Link'
-        required: true
-        default: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4'
-      loop_option:
-        description: 'Loop Option (-1 for repeat)'
-        required: true
-        default: '-1'
 
 jobs:
   stream:
     runs-on: ubuntu-latest
     steps:
-      - name: Install FFmpeg
+      - name: Install FFmpeg & yt-dlp
         run: |
-          sudo apt update
-          sudo apt install -y ffmpeg
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg python3-pip
+          sudo pip3 install --upgrade yt-dlp
 
       - name: Start Stream
-        env:
-          STREAM_KEY: ${{ secrets.STREAM_KEY }}
-          SONG_URL: ${{ github.event.inputs.song_url }}
-          LOOP_OPT: ${{ github.event.inputs.loop_option }}
         run: |
-          ffmpeg -re -stream_loop "$LOOP_OPT" -i "$SONG_URL" \
-            -c:v libx264 -preset ultrafast -b:v 2500k -maxrate 2500k -bufsize 5000k -g 50 \
-            -c:a aac -b:a 128k -ar 44100 \
-            -f flv "rtmp://a.rtmp.youtube.com/live2/$STREAM_KEY"
+          yt-dlp -g -f "best[ext=mp4]/best" "https://youtu.be/HclbhIm6tZU?si=Oxxk0KowLa9UH-vJ" | {
+            read VIDEO_URL
+            ffmpeg -re -stream_loop -1 -i "$VIDEO_URL" \
+              -c:v libx264 -preset ultrafast -b:v 2500k -maxrate 2500k -bufsize 5000k -g 50 \
+              -c:a aac -b:a 128k -ar 44100 \
+              -f flv "rtmp://a.rtmp.youtube.com/live2/b2fx-28zj-rs4u-6wsa-79k8"
+          }
