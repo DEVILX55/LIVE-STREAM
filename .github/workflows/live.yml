@@ -2,20 +2,31 @@ name: Continuous Live Stream
 
 on:
   workflow_dispatch:
+    inputs:
+      song_url:
+        description: 'YouTube Video Link'
+        required: true
+        default: 'https://youtu.be/HclbhIm6tZU'
 
 jobs:
   stream:
     runs-on: ubuntu-latest
     steps:
-      - name: Install FFmpeg & yt-dlp
+      - name: Install Tools
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg python3-pip
           sudo pip3 install --upgrade yt-dlp
 
+      - name: Save Cookies
+        env:
+          COOKIES_DATA: ${{ secrets.YT_COOKIES }}
+        run: |
+          echo "$COOKIES_DATA" > cookies.txt
+
       - name: Start Stream
         run: |
-          yt-dlp -g -f "best[ext=mp4]/best" "https://youtu.be/HclbhIm6tZU?si=Oxxk0KowLa9UH-vJ" | {
+          yt-dlp --cookies cookies.txt -g -f "best[ext=mp4]/best" "${{ github.event.inputs.song_url }}" | {
             read VIDEO_URL
             ffmpeg -re -stream_loop -1 -i "$VIDEO_URL" \
               -c:v libx264 -preset ultrafast -b:v 2500k -maxrate 2500k -bufsize 5000k -g 50 \
