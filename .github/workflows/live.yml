@@ -31,13 +31,13 @@ jobs:
 
       - name: Extract URL & Stream to YouTube
         run: |
-          STREAM_URL=$(yt-dlp --cookies cookies.txt --extractor-args "youtube:player_client=android,web" -g -f "best" "${{ github.event.inputs.song_url }}")
+          STREAM_URL=$(yt-dlp --cookies cookies.txt --extractor-args "youtube:player_client=web,mweb" -g -f "bv*+ba/b" "${{ github.event.inputs.song_url }}" | head -n 1)
           
           if [ -z "$STREAM_URL" ]; then
             echo "Failed to fetch stream URL"
             exit 1
           fi
-          
+
           ffmpeg -re -stream_loop -1 -i "$STREAM_URL" \
             -c:v libx264 -preset ultrafast -b:v 2500k -maxrate 2500k -bufsize 5000k -g 50 \
             -c:a aac -b:a 128k -ar 44100 \
