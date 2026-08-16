@@ -26,7 +26,7 @@ jobs:
 
       - name: Download Video to Cloud Storage
         run: |
-          yt-dlp --cookies cookies.txt --extractor-args "youtube:player_client=ios" -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" -o "video.mp4" "${{ github.event.inputs.song_url }}"
+          yt-dlp --cookies cookies.txt --user-agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" -f "b" -o "video.mp4" "${{ github.event.inputs.song_url }}"
 
       - name: Stream Local File 24/7
         run: |
