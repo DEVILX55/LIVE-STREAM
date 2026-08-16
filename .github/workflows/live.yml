@@ -4,11 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       song_url:
-        description: 'Song ya Video ka Direct Link (MP4/MP3)'
+        description: 'Song Direct MP4/MP3 Link'
         required: true
-        default: 'https://example.com/your-song.mp4'
+        default: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4'
       loop_option:
-        description: 'Loop Option (-1 mtlb continuous non-stop chalega, 0 mtlb 1 baar chalega)'
+        description: 'Loop Option (-1 for repeat)'
         required: true
         default: '-1'
 
@@ -18,16 +18,16 @@ jobs:
     steps:
       - name: Install FFmpeg
         run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg
+          sudo apt update
+          sudo apt install -y ffmpeg
 
-      - name: Start Live Stream
+      - name: Start Stream
         env:
           STREAM_KEY: ${{ secrets.STREAM_KEY }}
           SONG_URL: ${{ github.event.inputs.song_url }}
           LOOP_OPT: ${{ github.event.inputs.loop_option }}
         run: |
-          ffmpeg -re -stream_loop $LOOP_OPT -i "$SONG_URL" \
+          ffmpeg -re -stream_loop "$LOOP_OPT" -i "$SONG_URL" \
             -c:v libx264 -preset ultrafast -b:v 2500k -maxrate 2500k -bufsize 5000k -g 50 \
             -c:a aac -b:a 128k -ar 44100 \
             -f flv "rtmp://a.rtmp.youtube.com/live2/$STREAM_KEY"
