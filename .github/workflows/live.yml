@@ -12,24 +12,33 @@ jobs:
   stream:
     runs-on: ubuntu-latest
     steps:
-      - name: Install Tools
+      - name: Setup Node.js Environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install System Dependencies & Latest yt-dlp
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg python3-pip
-          sudo pip3 install --upgrade yt-dlp
+          python3 -m pip install --upgrade --force-reinstall yt-dlp
 
-      - name: Save Cookies
+      - name: Save Cookies Data
         env:
           COOKIES_DATA: ${{ secrets.YT_COOKIES }}
         run: |
           echo "$COOKIES_DATA" > cookies.txt
 
-      - name: Start Stream
+      - name: Extract URL & Stream to YouTube
         run: |
-          yt-dlp --cookies cookies.txt -g -f "best[ext=mp4]/best" "${{ github.event.inputs.song_url }}" | {
-            read VIDEO_URL
-            ffmpeg -re -stream_loop -1 -i "$VIDEO_URL" \
-              -c:v libx264 -preset ultrafast -b:v 2500k -maxrate 2500k -bufsize 5000k -g 50 \
-              -c:a aac -b:a 128k -ar 44100 \
-              -f flv "rtmp://a.rtmp.youtube.com/live2/b2fx-28zj-rs4u-6wsa-79k8"
-          }
+          STREAM_URL=$(yt-dlp --cookies cookies.txt --extractor-args "youtube:player_client=android,web" -g -f "best" "${{ github.event.inputs.song_url }}")
+          
+          if [ -z "$STREAM_URL" ]; then
+            echo "Failed to fetch stream URL"
+            exit 1
+          fi
+          
+          ffmpeg -re -stream_loop -1 -i "$STREAM_URL" \
+            -c:v libx264 -preset ultrafast -b:v 2500k -maxrate 2500k -bufsize 5000k -g 50 \
+            -c:a aac -b:a 128k -ar 44100 \
+            -f flv "rtmp://a.rtmp.youtube.com/live2/b2fx-28zj-rs4u-6wsa-79k8"
