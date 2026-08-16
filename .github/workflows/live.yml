@@ -12,11 +12,6 @@ jobs:
   stream:
     runs-on: ubuntu-latest
     steps:
-      - name: Setup Node.js Environment
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
       - name: Install System Dependencies & Latest yt-dlp
         run: |
           sudo apt-get update
@@ -29,16 +24,13 @@ jobs:
         run: |
           echo "$COOKIES_DATA" > cookies.txt
 
-      - name: Extract URL & Stream to YouTube
+      - name: Download Video to Cloud Storage
         run: |
-          STREAM_URL=$(yt-dlp --cookies cookies.txt --extractor-args "youtube:player_client=web,mweb" -g -f "bv*+ba/b" "${{ github.event.inputs.song_url }}" | head -n 1)
-          
-          if [ -z "$STREAM_URL" ]; then
-            echo "Failed to fetch stream URL"
-            exit 1
-          fi
+          yt-dlp --cookies cookies.txt --extractor-args "youtube:player_client=ios" -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" -o "video.mp4" "${{ github.event.inputs.song_url }}"
 
-          ffmpeg -re -stream_loop -1 -i "$STREAM_URL" \
+      - name: Stream Local File 24/7
+        run: |
+          ffmpeg -re -stream_loop -1 -i video.mp4 \
             -c:v libx264 -preset ultrafast -b:v 2500k -maxrate 2500k -bufsize 5000k -g 50 \
             -c:a aac -b:a 128k -ar 44100 \
             -f flv "rtmp://a.rtmp.youtube.com/live2/b2fx-28zj-rs4u-6wsa-79k8"
