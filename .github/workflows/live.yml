@@ -1,36 +1,57 @@
-name: Continuous Live Stream
+name: Ultimate Live Stream Workflow
 
 on:
   workflow_dispatch:
     inputs:
-      song_url:
-        description: 'YouTube Video Link'
+      video_url:
+        description: 'Direct MP4 Link (Video file or background loop video)'
         required: true
-        default: 'https://youtu.be/HclbhIm6tZU'
+        default: ''
+      audio_url:
+        description: 'Direct Audio Link (Leave "none" if file already has audio)'
+        required: false
+        default: 'none'
+      loop_count:
+        description: 'Loop Count for single video file (1 = Once, 10 = 10 times, -1 = Infinite). Ignored if audio_url is provided.'
+        required: false
+        default: '1'
 
 jobs:
   stream:
     runs-on: ubuntu-latest
     steps:
-      - name: Install System Dependencies & Latest yt-dlp
+      - name: Install FFmpeg
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg python3-pip
-          python3 -m pip install --upgrade --force-reinstall yt-dlp
+          sudo apt-get install -y ffmpeg
 
-      - name: Save Cookies Data
-        env:
-          COOKIES_DATA: ${{ secrets.YT_COOKIES }}
+      - name: Start Live Stream
         run: |
-          echo "$COOKIES_DATA" > cookies.txt
+          AUDIO_INPUT="${{ github.event.inputs.audio_url }}"
+          VIDEO_INPUT="${{ github.event.inputs.video_url }}"
+          LOOP_VAL=${{ github.event.inputs.loop_count }}
 
-      - name: Download Video to Cloud Storage
-        run: |
-          yt-dlp --cookies cookies.txt --user-agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" -f "b" -o "video.mp4" "${{ github.event.inputs.song_url }}"
+          if [ "$AUDIO_INPUT" == "none" ] || [ -z "$AUDIO_INPUT" ]; then
+            # SCENARIO 1: Single combined video file
+            if [ "$LOOP_VAL" -eq -1 ]; then
+              LOOP_ARG="-1"
+            else
+              LOOP_ARG=$((LOOP_VAL - 1))
+            fi
 
-      - name: Stream Local File 24/7
-        run: |
-          ffmpeg -re -stream_loop -1 -i video.mp4 \
-            -c:v libx264 -preset ultrafast -b:v 2500k -maxrate 2500k -bufsize 5000k -g 50 \
-            -c:a aac -b:a 128k -ar 44100 \
-            -f flv "rtmp://a.rtmp.youtube.com/live2/b2fx-28zj-rs4u-6wsa-79k8"
+            echo "Streaming single video file with loop argument: $LOOP_ARG"
+            ffmpeg -re -stream_loop $LOOP_ARG -i "$VIDEO_INPUT" \
+              -c:v libx264 -preset ultrafast -b:v 2500k -maxrate 2500k -bufsize 5000k -g 50 \
+              -c:a aac -b:a 128k -ar 44100 \
+              -f flv "rtmp://a.rtmp.youtube.com/live2/b2fx-28zj-rs4u-6wsa-79k8"
+          else
+            # SCENARIO 2: Separate Audio + Video (Video loops until audio ends)
+            echo "Streaming short video loop with long audio track..."
+            ffmpeg -re -stream_loop -1 -i "$VIDEO_INPUT" \
+              -i "$AUDIO_INPUT" \
+              -map 0:v:0 -map 1:a:0 \
+              -c:v libx264 -preset ultrafast -b:v 2500k -maxrate 2500k -bufsize 5000k -g 50 \
+              -c:a aac -b:a 128k -ar 44100 \
+              -shortest \
+              -f flv "rtmp://a.rtmp.youtube.com/live2/b2fx-28zj-rs4u-6wsa-79k8"
+          fi
